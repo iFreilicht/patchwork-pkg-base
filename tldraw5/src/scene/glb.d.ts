@@ -23,6 +23,7 @@ export interface GlbPrimitive {
   unlit?: boolean;
   blend?: boolean;
   texture?: GlbTexture;
+  materialExtras?: object;
 }
 
 export interface GlbMesh {

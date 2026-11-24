@@ -1,6 +1,7 @@
 // A tldraw drawing as scene content (patchwork-experiments/scene, README "Writing a provider"):
 // the page or frame a placement chooses (its `show` param, ./choices.ts), exported as a picture on
-// a transparent background in tldraw's light colours, on a quad in the object's frame. The canvas
+// a transparent background in tldraw's light colours, on a quad in the object's frame; a scene
+// recolours it for a viewer in a dark scheme (its material's `extras.colorScheme`). The canvas
 // is the tool's own: the base config and the document's `config.js` (../config.ts), so its custom
 // shapes draw as they do in the tool. Built on the main thread, by a hidden editor.
 
@@ -120,7 +121,7 @@ export default {
       if (!pic) return { kind: "glb", glb: encodeGLB({ meshes: [] }), meta: { notes: `Nothing drawn on ${shown.name}.` } };
       const q = quad(pic.box, pic.toOrigin);
       const glb = encodeGLB({
-        meshes: [{ name: shown.name, primitives: [{ ...q, texture: { image: pic.png, mimeType: "image/png" }, blend: true, unlit: true }] }],
+        meshes: [{ name: shown.name, primitives: [{ ...q, texture: { image: pic.png, mimeType: "image/png" }, blend: true, unlit: true, materialExtras: { colorScheme: "light" } }] }],
         nodes: [{ name: shown.name, mesh: 0 }],
         generator: "tldraw5 scene source",
       });

@@ -1,5 +1,5 @@
 /**
- * glb.js — a dependency-free glTF 2.0 binary (GLB) encoder.  [kit: glb.js v4]
+ * glb.js — a dependency-free glTF 2.0 binary (GLB) encoder.  [kit: glb.js v5]
  *
  * COPY THIS FILE into your package; do not import it across packages. It has no
  * imports and no DOM use, so it runs anywhere (main thread, worker, node).
@@ -12,6 +12,8 @@
  * v3 (from terrain's fork): `copyright` (asset.copyright), written only when given.
  * v4: `uvs` (TEXCOORD_0) and `texture` (a PNG or JPEG as the base colour), so a
  * picture can lie on a surface: a drawing on a plane, a decal on a face.
+ * v5: `materialExtras` (the material's `extras`), e.g. `{ colorScheme: "light" }`
+ * for a picture drawn for a light background (scene/README.md, "GLB conventions").
  *
  * ─── API ──────────────────────────────────────────────────────────────────────
  *
@@ -57,6 +59,7 @@
  *     blend?: boolean,                      // alphaMode BLEND, e.g. for COLOR_0 alpha
  *     texture?: Texture,                    // baseColorTexture, sampled at `uvs` (needed);
  *                                           // multiplied by `color` (default white)
+ *     materialExtras?: object,              // the material's `extras` (makes a material)
  *   }
  *
  *   Texture = {
@@ -115,7 +118,7 @@ const ARRAY_BUFFER = 34962;
 const ELEMENT_ARRAY_BUFFER = 34963;
 const TYPE_BY_SIZE = { 1: "SCALAR", 2: "VEC2", 3: "VEC3", 4: "VEC4" };
 
-const PRIMITIVE_KEYS = ["positions", "normals", "colors", "uvs", "indices", "mode", "attributes", "color", "texture"];
+const PRIMITIVE_KEYS = ["positions", "normals", "colors", "uvs", "indices", "mode", "attributes", "color", "texture", "materialExtras"];
 const IMAGE_TYPES = new Set(["image/png", "image/jpeg"]);
 // sampler filters and wraps (WebGL enums, as glTF names them)
 const NEAREST = 9728;
@@ -310,7 +313,7 @@ export function encodeGLB(scene) {
 
   const material = (prim, where) => {
     const color = toColor(prim.color);
-    if (!color && prim.metallic == null && prim.roughness == null && !prim.unlit && !prim.blend && !prim.texture) return undefined;
+    if (!color && prim.metallic == null && prim.roughness == null && !prim.unlit && !prim.blend && !prim.texture && !prim.materialExtras) return undefined;
     const m = {
       pbrMetallicRoughness: {
         baseColorFactor: color ?? [1, 1, 1, 1],
@@ -322,6 +325,7 @@ export function encodeGLB(scene) {
     };
     if (m.pbrMetallicRoughness.baseColorFactor[3] < 1 || prim.blend) m.alphaMode = "BLEND";
     if (prim.unlit) m.extensions = { KHR_materials_unlit: {} };
+    if (prim.materialExtras) m.extras = prim.materialExtras;
     const key = JSON.stringify(m);
     if (!materialKeys.has(key)) {
       materialKeys.set(key, materials.length);

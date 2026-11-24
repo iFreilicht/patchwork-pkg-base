@@ -53,7 +53,7 @@ export const plugins = [
     // its params are the document's own pages and frames: the module's params(doc)
     params: [],
     // bump when build() makes different output from the same drawing
-    version: 1,
+    version: 2,
     async load() {
       // the hidden editor measures text with tldraw's styles, as the tool does
       addStyles(await loadStyles());
