@@ -133,6 +133,17 @@ export function splitPresenceUserId(userId: string): {
   };
 }
 
+/**
+ * What a host that mounts the tool inside its own view (a 3D scene's Open,
+ * src/scene/edit.tsx) may ask of it. Without one, the tool is as it always is.
+ */
+export type CanvasHost = {
+  /** The editor once it's set up; what it returns runs as the canvas goes. */
+  onEditor?(editor: Editor): void | (() => void);
+  /** Which shapes show (tldraw's own option), read as the editor is made. */
+  getShapeVisibility?: TldrawProps["getShapeVisibility"];
+};
+
 // A tldraw4 document has to be migrated before the canvas mounts: a v5 store
 // migrates the snapshot as it loads it, and the store->Automerge sync would
 // then persist that silently. So the type is checked first, and an unmigrated
@@ -140,9 +151,11 @@ export function splitPresenceUserId(userId: string): {
 export function TldrawTool({
   docUrl,
   element,
+  host,
 }: {
   docUrl: AutomergeUrl;
   element: HTMLElement;
+  host?: CanvasHost;
 }) {
   const handle = useDocHandle<TLDrawDoc>(docUrl, { suspense: true });
   const readOnly = useIsHandleReadOnly(handle);
@@ -156,7 +169,7 @@ export function TldrawTool({
     return <MigratePrompt handle={handle} readOnly={readOnly} />;
   }
 
-  return <TldrawCanvas docUrl={docUrl} element={element} />;
+  return <TldrawCanvas docUrl={docUrl} element={element} host={host} />;
 }
 
 // `config.js` builds the shape utils, tools, overlays and components the canvas
@@ -166,9 +179,11 @@ export function TldrawTool({
 function TldrawCanvas({
   docUrl,
   element,
+  host,
 }: {
   docUrl: AutomergeUrl;
   element: HTMLElement;
+  host?: CanvasHost;
 }) {
   const repo = useRepo();
   // Suspending: a doc that's undefined on the first render would settle the
@@ -187,6 +202,7 @@ function TldrawCanvas({
       docUrl={docUrl}
       element={element}
       config={config.config}
+      host={host}
     />
   );
 }
@@ -276,10 +292,12 @@ function TldrawConfiguredCanvas({
   docUrl,
   element,
   config,
+  host,
 }: {
   docUrl: AutomergeUrl;
   element: HTMLElement;
   config: TldrawConfig;
+  host?: CanvasHost;
 }) {
   const handle = useDocHandle<TLDrawDoc>(docUrl, { suspense: true });
   // A history-pinned handle (url carries heads) is at fixed heads and rejects
@@ -343,8 +361,9 @@ function TldrawConfiguredCanvas({
           options={config.options as TldrawProps["options"]}
           overrides={newDocUiOverrides}
           components={components}
+          {...(host?.getShapeVisibility ? { getShapeVisibility: host.getShapeVisibility } : {})}
         >
-          <TldrawInner docUrl={docUrl} element={element} readOnly={readOnly} />
+          <TldrawInner docUrl={docUrl} element={element} readOnly={readOnly} host={host} />
         </Tldraw>
       </TldrFileContext.Provider>
     </DiffStatusContext.Provider>
@@ -460,6 +479,7 @@ function TldrawInner(props: {
   docUrl: AutomergeUrl;
   element: HTMLElement;
   readOnly: boolean;
+  host?: CanvasHost | undefined;
 }) {
   const key = useMemo(() => `${props.docUrl}-camera`, [props.docUrl]);
 
@@ -563,6 +583,11 @@ function TldrawInner(props: {
       }
     );
 
+    // A host keeps the camera itself: the tool neither restores nor saves one.
+    if (props.host) {
+      const done = props.host.onEditor?.(editor);
+      return () => void done?.();
+    }
     const existing = localStorage.getItem(key);
     if (existing) {
       try {
@@ -798,11 +823,11 @@ function usePatchworkDrop(element: HTMLElement) {
   }, [editor, repo, element]);
 }
 
-export function render(handle: any, element: any) {
+export function render(handle: any, element: any, host?: CanvasHost) {
   const root = createRoot(element);
   root.render(
     <RepoContext.Provider value={element.repo}>
-      <TldrawTool docUrl={handle.url} element={element} />
+      <TldrawTool docUrl={handle.url} element={element} host={host} />
     </RepoContext.Provider>
   );
   return () => root.unmount();

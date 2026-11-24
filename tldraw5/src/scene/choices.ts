@@ -107,6 +107,12 @@ export function invert(m: Affine): Affine {
 
 const apply = (m: Affine, x: number, y: number): [number, number] => [m.a * x + m.c * y + m.e, m.b * x + m.d * y + m.f];
 
+/** A page point in the object's frame (Y up, metres), as `quad` places it: page x along +X, page y along −Y. */
+export function pageToLocal(x: number, y: number, toOrigin: Affine = IDENTITY): [number, number, number] {
+  const [lx, ly] = apply(toOrigin, x, y);
+  return [lx * METRES_PER_UNIT, -ly * METRES_PER_UNIT, 0];
+}
+
 /**
  * The quad a picture of a page rectangle lies on, in the object's frame (Y up, metres): `box` in
  * page units, mapped by `toOrigin` (page → the shown thing's own frame: the identity for a page,

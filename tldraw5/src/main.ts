@@ -60,4 +60,16 @@ export const plugins = [
       return (await import("./scene/source.tsx")).default;
     },
   },
+  // Editing a drawing where it stands in a scene: the tool over the scene's view, the scene's
+  // camera following tldraw's (src/scene/edit.tsx). Loads with every scene view, so tldraw and
+  // its styles load only as a drawing is opened.
+  {
+    type: "scene:view",
+    id: "tldraw5-scene-edit",
+    name: "tldraw drawing editing",
+    async load() {
+      const { create } = await import("./scene/edit.tsx");
+      return { create: (api: Parameters<typeof create>[0]) => create(api, async () => addStyles(await loadStyles())) };
+    },
+  },
 ];
