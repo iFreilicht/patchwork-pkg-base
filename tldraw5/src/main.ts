@@ -40,4 +40,24 @@ export const plugins = [
       };
     },
   },
+  // A drawing in a 3D scene (patchwork-experiments/scene, README "Writing a provider"): the page or
+  // frame a placement chooses, built as a picture on a plane (src/scene/).
+  {
+    type: "scene:source",
+    id: "tldraw5-scene",
+    name: "tldraw drawing",
+    icon: "PenLine",
+    supportedDatatypes: ["tldraw5"],
+    content: "built",
+    cost: "expensive",
+    // its params are the document's own pages and frames: the module's params(doc)
+    params: [],
+    // bump when build() makes different output from the same drawing
+    version: 1,
+    async load() {
+      // the hidden editor measures text with tldraw's styles, as the tool does
+      addStyles(await loadStyles());
+      return (await import("./scene/source.tsx")).default;
+    },
+  },
 ];

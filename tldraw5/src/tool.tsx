@@ -22,11 +22,6 @@ import {
   type TldrawProps,
   type TLAnyShapeUtilConstructor,
   type TLAnyBindingUtilConstructor,
-  defaultShapeUtils,
-  defaultBindingUtils,
-  defaultAssetUtils,
-  defaultOverlayUtils,
-  defaultTools,
 } from "@tldraw/tldraw";
 import {
   useAutomergeStore,
@@ -37,6 +32,7 @@ import {
 import type { TLDrawDoc } from "./datatype.ts";
 import type { DocLink } from "@inkandswitch/patchwork-filesystem";
 import type { TldrawConfig } from "./script.ts";
+import { baseConfig } from "./config.ts";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { UnixFileEntry } from "@inkandswitch/patchwork-filesystem";
 import { automergeUrlToServiceWorkerUrl } from "@inkandswitch/patchwork-filesystem";
@@ -44,20 +40,16 @@ import { useSubscribe } from "@inkandswitch/patchwork-providers-react";
 import { createRoot } from "react-dom/client";
 import { diffStore, type ShapeDiff } from "./diff.ts";
 import {
-  DiffShapeWrapper,
   DiffStatusContext,
   type DiffStatus,
   type DiffStatusAtom,
 } from "./DiffShapeWrapper.tsx";
 import {
-  PatchworkDocShapeUtil,
   PATCHWORK_DOC_SHAPE_TYPE,
   getDefaultToolId,
   makeShapeId,
 } from "./PatchworkDocShape.tsx";
 import {
-  NewDocShapeTool,
-  NewDocToolbar,
   newDocUiOverrides,
   setNewDocToolContext,
 } from "./NewDocTool.tsx";
@@ -66,16 +58,9 @@ import { MigratePrompt, TLDRAW4_TYPE, getDocType } from "./migrate.tsx";
 import { useColorScheme } from "./color-scheme.ts";
 import {
   TldrFileContext,
-  TldrFileMainMenu,
   importArchiveFile,
   isTldrArchiveFile,
 } from "./file-io.tsx";
-
-// Custom shapes / tools that let a tldraw canvas embed other Patchwork
-// documents. These must be registered both on the Automerge-backed store (so
-// the shape type persists) and on the <Tldraw> component (so it renders).
-const customShapeUtils = [PatchworkDocShapeUtil];
-const customTools = [NewDocShapeTool];
 
 // Diff baseline (fork-point heads) served by the draft overlay
 // (`draft:baseline`). `heads` is `null` when there is no baseline and no
@@ -204,22 +189,6 @@ function TldrawCanvas({
       config={config.config}
     />
   );
-}
-
-function baseConfig(): TldrawConfig {
-  return {
-    shapeUtils: [...defaultShapeUtils, ...customShapeUtils],
-    bindingUtils: [...defaultBindingUtils],
-    assetUtils: [...defaultAssetUtils],
-    overlayUtils: [...defaultOverlayUtils],
-    tools: [...defaultTools, ...customTools],
-    components: {
-      ShapeWrapper: DiffShapeWrapper,
-      Toolbar: NewDocToolbar,
-      MainMenu: TldrFileMainMenu,
-    },
-    options: {},
-  };
 }
 
 // Re-runs `config.js` whenever the files it imports are edited, and bumps the
