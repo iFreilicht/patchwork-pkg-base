@@ -2,7 +2,7 @@
 // patchwork-experiments/scene, EDITOR.md "A command", STAGE.md "View plugins"). The drawing's Open
 // (the inspector's button, the menu, a double-click or Enter in Edit) lays the tool itself, with
 // its UI, over the scene's view, on a transparent background, and hides the object's built picture.
-// tldraw's camera leads: the scene's camera follows it, face on to the drawing's plane, so that the
+// tldraw's camera leads: the scene's camera follows it, orthographic and face on to the drawing's plane, so that the
 // page lies on the screen as tldraw draws it (./face-on.ts) and panning or zooming in tldraw moves
 // the scene with it. A frame shown alone is edited alone. Escape with nothing to cancel in tldraw,
 // Done, the Open again or the focus leaving ends it.
@@ -29,7 +29,8 @@ const STYLE = `
   background: Canvas; color: CanvasText; font: 500 13px system-ui, sans-serif; cursor: pointer; }
 `;
 
-type Camera = { get(): { fov?: number } | null; set(cam: { position?: number[]; quaternion?: number[]; target?: number[] }): void; hold(): () => void };
+type Projection = "perspective" | "orthographic";
+type Camera = { get(): { fov?: number; projection?: Projection } | null; set(cam: { position?: number[]; quaternion?: number[]; target?: number[]; projection?: Projection }): void; hold(): () => void };
 type Handle = { url: string; doc(): unknown };
 /** The parts of the scene's api this uses: its focus stage's (`api.focus()`), all in that stage's frame. */
 type Stage = {
@@ -120,6 +121,13 @@ export function create(api: ViewApi, prepare: () => Promise<void> = async () => 
     cleanups.push(() => element.remove(), () => done.remove());
     cleanups.push(stage.display(id, { hidden: true }));
     cleanups.push(stage.camera.hold());
+    // Orthographic while editing, as a drawing is flat: the scene behind it shows without
+    // perspective, as the page does. faceOn holds for both (the scene's orthographic view shows at
+    // the focus what perspective shows there). The viewer's own choice comes back as it ends,
+    // while the camera is still held, so the switch is never kept as theirs.
+    const projection = stage.camera.get()?.projection;
+    stage.camera.set({ projection: "orthographic" });
+    cleanups.push(() => stage.camera.set({ projection: projection ?? "perspective" }));
     cleanups.push(api.hand({ kind: "tldraw", name: `Editing ${object.name ?? "drawing"}`, pointer: true, input: {}, escape: () => false, put: stop }));
     stage.signal.addEventListener("abort", stop, { once: true });
 

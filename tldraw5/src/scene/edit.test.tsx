@@ -41,8 +41,8 @@ function setup({ objects, renderParams = {}, store, writable = true }: { objects
     display: vi.fn((id: string, o: object) => (calls.push(`display ${id} ${JSON.stringify(o)}`), () => calls.push(`show ${id}`))),
     worldOf: () => IDENTITY,
     camera: {
-      get: () => ({ fov: 45 }),
-      set: vi.fn(),
+      get: () => ({ fov: 45, projection: "perspective" }),
+      set: vi.fn((cam: { projection?: string; position?: number[]; quaternion?: number[]; target?: number[] }) => cam.projection && calls.push(`projection ${cam.projection}`)),
       hold: vi.fn(() => (calls.push("hold"), () => calls.push("release"))),
     },
   };
@@ -106,7 +106,7 @@ describe("the drawing's Open", () => {
     // the view's whole repo, not the stage's find-only one: the tool's hooks need findWithProgress
     expect(element.repo).toBe(viewRepo);
     expect(overlay.querySelector(".tldraw5-scene-done")?.textContent).toBe("Done");
-    expect(calls).toEqual(['display d {"hidden":true}', "hold", "hand Editing Notes"]);
+    expect(calls).toEqual(['display d {"hidden":true}', "hold", "projection orthographic", "hand Editing Notes"]);
     expect(prepare).toHaveBeenCalledOnce();
     expect(rendered).toHaveLength(1);
     expect(rendered[0].element).toBe(element);
@@ -123,7 +123,7 @@ describe("the drawing's Open", () => {
     rendered[0].host.onEditor(editor);
     expect(editor.setCurrentPage).toHaveBeenCalledWith("page:b");
     expect(editor.zoomToFit).toHaveBeenCalledOnce();
-    const cam = stage.camera.set.mock.calls.at(-1)![0];
+    const cam = stage.camera.set.mock.calls.at(-1)![0] as { position: number[]; quaternion: number[]; target: number[] };
     // the middle of tldraw's view, (400, 300) on the page, straight ahead; looking down −z at an upright drawing
     expect(cam.target.map((v: number) => v / (0.0254 / 96))).toEqual([expect.closeTo(400, 6), expect.closeTo(-300, 6), 0]);
     expect(cam.position[2]).toBeGreaterThan(0);
@@ -166,7 +166,8 @@ describe("the drawing's Open", () => {
       off();
       // everything it took, given back, last first
       expect(unmount).toHaveBeenCalledOnce();
-      expect(calls.slice(3)).toEqual(["put down", "release", "show d"]);
+      // the viewer's projection back while the camera is still held, so it's never kept as theirs
+      expect(calls.slice(4)).toEqual(["put down", "projection perspective", "release", "show d"]);
       expect(overlay.querySelector(".tldraw5-scene-edit")).toBeNull();
       expect(overlay.querySelector(".tldraw5-scene-done")).toBeNull();
       expect(open.state("d")).toMatchObject({ label: "Open" });
