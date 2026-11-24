@@ -102,6 +102,15 @@ export default {
     return spec ? [spec] : [];
   },
 
+  /**
+   * The other documents the build reads: the script tree's top-level links (`config.js` and the
+   * folders around it), so editing them rebuilds. A file in a nested folder is read too, but only
+   * its folder is watched, which moves when the folder's list does, not when the file is edited.
+   */
+  dependencies(doc: TLDrawDoc) {
+    return (doc?.docs ?? []).map((link) => link.url).filter((url): url is NonNullable<typeof url> => typeof url === "string" && !!url);
+  },
+
   async build({ doc, repo, params }: { doc: TLDrawDoc; repo: Repo; params: Record<string, unknown> }): Promise<Built> {
     const shown = resolveShow(doc?.store as never, params[SHOW]);
     if (!shown) return { kind: "glb", glb: encodeGLB({ meshes: [] }), meta: { notes: "The drawing has no pages." } };
