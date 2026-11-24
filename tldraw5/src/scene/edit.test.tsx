@@ -22,7 +22,7 @@ const { create, SOURCE_ID } = await import("./edit.tsx");
 const flush = () => new Promise((r) => setTimeout(r, 0));
 const IDENTITY = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 
-function setup({ objects, renderParams = {}, store }: { objects?: Record<string, object>; renderParams?: Record<string, unknown>; store?: Record<string, object> } = {}) {
+function setup({ objects, renderParams = {}, store, writable = true }: { objects?: Record<string, object>; renderParams?: Record<string, unknown>; store?: Record<string, object>; writable?: boolean } = {}) {
   const port = document.createElement("div");
   document.body.append(port);
   const overlay = document.createElement("div");
@@ -36,6 +36,7 @@ function setup({ objects, renderParams = {}, store }: { objects?: Record<string,
   const stage = {
     signal: abort.signal,
     repo: { find: async (url: string) => ({ url, doc: () => docs[url] }) },
+    writable: () => writable,
     scene: () => ({ objects: objects ?? { d: { providerId: SOURCE_ID, sourceUrl: "automerge:drawing", renderUrl: "automerge:render", name: "Notes" }, box: { providerId: "other" } } }),
     display: vi.fn((id: string, o: object) => (calls.push(`display ${id} ${JSON.stringify(o)}`), () => calls.push(`show ${id}`))),
     worldOf: () => IDENTITY,
@@ -46,7 +47,9 @@ function setup({ objects, renderParams = {}, store }: { objects?: Record<string,
     },
   };
   let hand: any = null;
+  const viewRepo = { findWithProgress: () => null };
   const api = {
+    repo: viewRepo,
     focus: () => stage,
     overlay: () => overlay,
     hand: vi.fn((spec: any) => ((hand = spec), calls.push(`hand ${spec.name}`), () => calls.push("put down"))),
@@ -54,7 +57,7 @@ function setup({ objects, renderParams = {}, store }: { objects?: Record<string,
   const prepare = vi.fn(async () => {});
   const plugin = create(api as never, prepare);
   const open = plugin.commands[0];
-  return { plugin, open, stage, api, overlay, calls, abort, prepare, hand: () => hand };
+  return { plugin, open, stage, api, overlay, calls, abort, prepare, viewRepo, hand: () => hand };
 }
 
 /** An editor as the host sees it, idle in its select tool unless told otherwise. */
@@ -89,16 +92,19 @@ describe("the drawing's Open", () => {
     expect(open.state(null)).toBeNull();
     const fixed = setup({ objects: { d: { providerId: SOURCE_ID, sourceUrl: "automerge:drawing", at: { heads: ["h"] } } } });
     expect(fixed.open.state("d")).toMatchObject({ disabled: true });
+    // the tool writes through the view's repo, which a stage that may not write doesn't hand out
+    expect(setup({ writable: false }).open.state("d")).toMatchObject({ disabled: true });
   });
 
   it("lays the tool over the scene as an embedded document, hides the built picture, holds the camera and takes a hand", async () => {
-    const { open, overlay, calls, prepare } = setup();
+    const { open, overlay, calls, prepare, viewRepo } = setup();
     open.run("d");
     await flush();
     const element = overlay.querySelector(".tldraw5-scene-edit") as HTMLElement & { repo?: unknown };
     expect(element.hasAttribute("data-stage-embed")).toBe(true);
     expect(element.classList.contains("about-embed")).toBe(true);
-    expect(element.repo).toBeTruthy();
+    // the view's whole repo, not the stage's find-only one: the tool's hooks need findWithProgress
+    expect(element.repo).toBe(viewRepo);
     expect(overlay.querySelector(".tldraw5-scene-done")?.textContent).toBe("Done");
     expect(calls).toEqual(['display d {"hidden":true}', "hold", "hand Editing Notes"]);
     expect(prepare).toHaveBeenCalledOnce();

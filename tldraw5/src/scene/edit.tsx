@@ -35,12 +35,15 @@ type Handle = { url: string; doc(): unknown };
 type Stage = {
   signal: AbortSignal;
   repo: { find(url: string): Promise<Handle> };
+  writable(): boolean;
   scene(): { objects: Record<string, { providerId?: string; sourceUrl?: string; renderUrl?: string | null; name?: string; at?: unknown } | undefined> };
   display(id: string, o: { hidden?: boolean }): () => void;
   worldOf(id: string): ArrayLike<number> | null;
   camera: Camera;
 };
 type ViewApi = {
+  /** The view's own repo: the tool's hooks need a whole one, which a stage's (find, create) isn't. */
+  repo: unknown;
   focus(): Stage | null;
   overlay(): HTMLElement;
   hand(spec: { kind: string; name: string; input: object; pointer?: boolean; escape?: () => boolean; put?: () => void }): () => void;
@@ -107,7 +110,9 @@ export function create(api: ViewApi, prepare: () => Promise<void> = async () => 
       overlay.append(style);
       styled = true;
     }
-    const element = Object.assign(document.createElement("div"), { className: `${EMBED_CLASS} tldraw5-scene-edit`, repo: stage.repo });
+    // the tool's hooks take a whole repo (findWithProgress and the rest): the view's. Its handles
+    // write, so Open is offered only where the stage may write (the command's state)
+    const element = Object.assign(document.createElement("div"), { className: `${EMBED_CLASS} tldraw5-scene-edit`, repo: api.repo });
     element.setAttribute(EMBED_ATTR, "");
     const done = Object.assign(document.createElement("button"), { type: "button", className: "tldraw5-scene-done", textContent: "Done", title: "Stop editing the drawing (Escape)" });
     done.addEventListener("click", stop);
@@ -183,7 +188,9 @@ export function create(api: ViewApi, prepare: () => Promise<void> = async () => 
         state(target: unknown) {
           if (!isDrawing(target)) return null;
           const open = session?.id === target;
-          if (!open && api.focus()?.scene().objects[target as string]?.at) return { label: "Open", title: "Fixed at a version: follow the latest to edit it", disabled: true };
+          const stage = api.focus();
+          if (!open && stage?.scene().objects[target as string]?.at) return { label: "Open", title: "Fixed at a version: follow the latest to edit it", disabled: true };
+          if (!open && stage && !stage.writable()) return { label: "Open", title: "This scene can't be changed here", disabled: true };
           return { label: open ? "Close" : "Open", title: open ? "Stop editing the drawing" : "Edit the drawing here, in place", checked: open };
         },
         run(target: unknown) {
